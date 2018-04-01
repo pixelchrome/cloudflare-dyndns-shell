@@ -14,11 +14,13 @@ CF_ZONE_NAME=""
 CF_DOMAIN_NAME=""
 
 # Optional Parameter
-EXTERNAL_IP=$(curl -s https://api.ipify.org)
+EXTERNAL_IPv4=$(dig +short myip.opendns.com @resolver1.opendns.com)
+EXTERNAL_IPv6=$(dig -6 +short myip.opendns.com aaaa @resolver1.ipv6-sandbox.opendns.com)
 
 # we get them automatically for you
 CF_ZONEID=""
-CF_DOMAINID=""
+CF_DOMAINIDv4=""
+CF_DOMAINIDv6=""
 
 function getZoneID() {
   CF_ZONEID=$(curl -s \
@@ -29,8 +31,8 @@ function getZoneID() {
     jq -r .result[0].id)
 }
 
-function getDomainID() {
-  CF_DOMAINID=$(curl -s \
+function getDomainIDv4() {
+  CF_DOMAINIDv4=$(curl -s \
     -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONEID}/dns_records?name=${CF_DOMAIN_NAME}" \
     -H "X-Auth-Email: ${CF_EMAIL}" \
     -H "X-Auth-Key: ${CF_TOKEN}" \
@@ -38,16 +40,35 @@ function getDomainID() {
   jq -r .result[0].id)
 }
 
-function updateDomain() {
+function updateDomainv4() {
   curl -s \
-    -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONEID}/dns_records/${CF_DOMAINID}" \
+    -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONEID}/dns_records/${CF_DOMAINIDv4}" \
     -H "X-Auth-Email: ${CF_EMAIL}" \
     -H "X-Auth-Key: ${CF_TOKEN}" \
     -H "Content-Type: application/json" \
-    --data '{"type":"A","name":"'${CF_DOMAIN_NAME}'","content":"'${EXTERNAL_IP}'","ttl":1,"proxied":false}'
+    --data '{"type":"A","name":"'${CF_DOMAIN_NAME}'","content":"'${EXTERNAL_IPv4}'","ttl":1,"proxied":false}'
+}
+
+function getDomainIDv6() {
+  CF_DOMAINIDv6=$(curl -s \
+    -X GET "https://api.cloudflare.com/client/v4/zones/${CF_ZONEID}/dns_records?name=${CF_DOMAIN_NAME}" \
+    -H "X-Auth-Email: ${CF_EMAIL}" \
+    -H "X-Auth-Key: ${CF_TOKEN}" \
+    -H "Content-Type: application/json" | \
+  jq -r .result[1].id)
+}
+
+function updateDomainv6() {
+  curl -s \
+    -X PUT "https://api.cloudflare.com/client/v4/zones/${CF_ZONEID}/dns_records/${CF_DOMAINIDv6}" \
+    -H "X-Auth-Email: ${CF_EMAIL}" \
+    -H "X-Auth-Key: ${CF_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data '{"type":"AAAA","name":"'${CF_DOMAIN_NAME}'","content":"'${EXTERNAL_IPv6}'","ttl":1,"proxied":false}'
 }
 
 getZoneID
-getDomainID
-updateDomain
-
+getDomainIDv4
+updateDomainv4
+getDomainIDv6
+updateDomainv6
